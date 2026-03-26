@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use serde_json::Value;
 
 use crate::{
-    Endpoint, Middleware, Request, Result,
+    Endpoint, IntoResponse, Middleware, Request, Result,
     middleware::{CookieJarManager, CookieJarManagerEndpoint},
     session::{CookieConfig, Session, SessionStatus},
 };
@@ -64,7 +64,12 @@ impl<E: Endpoint> Endpoint for CookieSessionEndpoint<E> {
             .unwrap_or_default();
 
         req.extensions_mut().insert(session.clone());
-        let resp = self.inner.call(req).await?;
+        let resp = self
+            .inner
+            .call(req)
+            .await
+            .map(|r| r.into_response())
+            .unwrap_or_else(|err| err.into_response());
 
         match session.status() {
             SessionStatus::Changed | SessionStatus::Renewed => {
